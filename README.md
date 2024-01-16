@@ -1,4 +1,4 @@
-# intrst
+# intrst app
 This is an open source project to connect people with similar interests.
 ## Branch disclosure
 this open source project has multiple branches with different levels of permissions.
