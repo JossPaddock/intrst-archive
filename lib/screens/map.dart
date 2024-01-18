@@ -18,7 +18,8 @@ import 'auth.dart';
 import 'dart:async';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:typed_data';
-import 'package:maps_toolkit/maps_toolkit.dart' as mtk; //Maps calculate distance
+import 'package:maps_toolkit/maps_toolkit.dart'
+    as mtk; //Maps calculate distance
 import 'package:flutter/services.dart' show PlatformException, rootBundle;
 import 'dart:ui' as ui;
 //Location permissions and functions
@@ -28,10 +29,12 @@ import 'my_interests_ordered.dart';
 //Chat related functions
 // import 'package:flutter_firebase_chat_core/flutter_firebase_chat_core.dart';
 // import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
-
+import 'package:intrst/markers/name_display.dart' as nd;
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({Key? key,}) : super(key: key);
+  const MapScreen({
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -67,17 +70,17 @@ class _MapScreenState extends State<MapScreen> {
   initState() {
     rootBundle.loadString('assets/mapstyle.txt').then((string) {
       _mapStyle = string;
-      if (humans.isNotEmpty) { // assuming humans data is also loaded by this time
+      if (humans.isNotEmpty) {
+        // assuming humans data is also loaded by this time
         setState(() {
           _isLoading = false;
         });
       }
     });
 
-    Provider.of<Humans>(context, listen: false)
-        .getHumansStream()
-        .then((_) {
-      if (_mapStyle.isNotEmpty) { // check if map style is also loaded
+    Provider.of<Humans>(context, listen: false).getHumansStream().then((_) {
+      if (_mapStyle.isNotEmpty) {
+        // check if map style is also loaded
         setState(() {
           _isLoading = false;
         });
@@ -91,7 +94,6 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     getHumansStream();
   }
-
 
   void _setHumanFilterList(List<Interest> filterInterests) {
     _filteredHumans.clear();
@@ -116,7 +118,6 @@ class _MapScreenState extends State<MapScreen> {
     _setHumanMarkers(_filteredHumans, _currentHuman);
   }
 
-
   void getCurrentUser() {
     try {
       final user = _auth.currentUser;
@@ -130,8 +131,8 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> getCurrentHumanStream() async {
     if (loggedInUser != null) {
-      var humanSnapshot = await _firestore.collection('humans')
-          .doc(loggedInUser!.uid).get();
+      var humanSnapshot =
+          await _firestore.collection('humans').doc(loggedInUser!.uid).get();
       if (humanSnapshot.exists) {
         Map<String, dynamic>? data = humanSnapshot.data();
 
@@ -151,21 +152,19 @@ class _MapScreenState extends State<MapScreen> {
                 id: e['id'],
                 description: e['description'],
                 website: e['website'] ?? '',
-                createdAt: createdAt
-            ));
+                createdAt: createdAt));
           });
         }
 
         setState(() {
           _currentHuman = Human(
-            email: data['email'],
-            name: data['name'],
-            position: Position(
-              latitude: data['position']['latitude'],
-              longitude: data['position']['longitude'],
-            ),
-            interests: interestList
-          );
+              email: data['email'],
+              name: data['name'],
+              position: Position(
+                latitude: data['position']['latitude'],
+                longitude: data['position']['longitude'],
+              ),
+              interests: interestList);
         });
       }
     } else {
@@ -174,7 +173,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> getInterestsStream() async {
-    await for ( var snapshot in _firestore.collection('interests').snapshots()) {
+    await for (var snapshot in _firestore.collection('interests').snapshots()) {
       for (var interest in snapshot.docs) {
         interests.add(interest.data());
       }
@@ -182,7 +181,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> getHumansStream() async {
-    await for ( var snapshot in _firestore.collection('humans').snapshots()) {
+    await for (var snapshot in _firestore.collection('humans').snapshots()) {
       for (var human in snapshot.docs) {
         humans.add(human.data());
       }
@@ -192,55 +191,69 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-
   Future<void> _setHumanMarkers(humans, currentHuman) async {
     final Uint8List humanIcon =
-      await getBytesFromAsset('assets/images/icons/poi.png', 100);
+        await getBytesFromAsset('assets/images/icons/poi.png', 100);
     final Uint8List userIcon =
-      await getBytesFromAsset('assets/images/icons/2tws_45w.png', 100);
+        await getBytesFromAsset('assets/images/icons/2tws_45w.png', 100);
+    final name_display = nd.NameDisplay();
     markers = {};
+    for (var human in humans) {
+      Marker nameMarker = await name_display.createMarker(
+          human.position.latitude, human.position.longitude, human.name);
+      setState(() {
+        markers.add(nameMarker);
+      });
+    }
     for (var human in humans) {
       // print('PLACING HUMAN ON MARKER: ${human.name} & ${human.email} & ${human.position.latitude}');
       setState(() {
         markers.add(Marker(
           markerId: MarkerId(human.email),
+          //infoWindow: InfoWindow(title: "Mark", snippet: "Mark"),
           position: LatLng(human.position.latitude, human.position.longitude),
           icon: (currentHuman != null && currentHuman!.email == human.email)
               ? BitmapDescriptor.fromBytes(userIcon)
               : BitmapDescriptor.fromBytes(humanIcon),
-          draggable: (currentHuman != null && currentHuman!.email == human.email)
-              ? true
-              : false,
-          onDragEnd: (currentHuman != null && currentHuman!.email == human.email)
-              ? (LatLng location) {
-                  _savePositionAndGoThere(loggedInUser, location);
-                }
-              : null,
+          draggable:
+              (currentHuman != null && currentHuman!.email == human.email)
+                  ? true
+                  : false,
+          onDragEnd:
+              (currentHuman != null && currentHuman!.email == human.email)
+                  ? (LatLng location) {
+                      _savePositionAndGoThere(loggedInUser, location);
+                    }
+                  : null,
           onTap: () {
             List<Interest> selectedMarkerInterests = [];
             human.interests.forEach((interest) {
               selectedMarkerInterests.add(interest);
             });
-            int distanceFromMe = 0;
+            /*int distanceFromMe = 0;
 
             if (currentHuman != null) {
-              distanceFromMe = (mtk.SphericalUtil.computeDistanceBetween(
-                  mtk.LatLng(human.position.latitude, human.position.longitude),
-                  mtk.LatLng(currentHuman.position.latitude, currentHuman.position.longitude)
-              ) / 1000.0).round();
-            }
+                distanceFromMe = (mtk.SphericalUtil.computeDistanceBetween(
+                            mtk.LatLng(human.position.latitude,
+                                human.position.longitude),
+                            mtk.LatLng(currentHuman.position.latitude,
+                                currentHuman.position.longitude)) /
+                        1000.0)
+                    .round();
+              }*/
             if (currentHuman != null && currentHuman!.email == human.email) {
-              Navigator.of(context).pushNamed(MyInterestsScreenOrdered.routeName);
+              Navigator.of(context)
+                  .pushNamed(MyInterestsScreenOrdered.routeName);
             } else {
               selectedMarker = MarkerInformation(
                   email: human.email,
                   name: human.name,
-                  interestList: selectedMarkerInterests
-              );
-              showCustomDialog(context, selectedMarker, distanceFromMe);
+                  interestList: selectedMarkerInterests);
+              //           showCustomDialog(context, selectedMarker, distanceFromMe);
+              showCustomDialog(context, selectedMarker);
             }
-
-          },));
+          },
+        ));
       });
     }
   }
@@ -277,12 +290,8 @@ class _MapScreenState extends State<MapScreen> {
     final GoogleMapController controller = await _controller.future;
     final locationData = await location.getLocation();
     _newPosition = CameraPosition(
-      target: LatLng(
-        locationData.latitude!,
-        locationData.longitude!
-      ),
-      zoom: 12
-    );
+        target: LatLng(locationData.latitude!, locationData.longitude!),
+        zoom: 12);
     controller.animateCamera(CameraUpdate.newCameraPosition(_newPosition));
   }
 
@@ -291,8 +300,8 @@ class _MapScreenState extends State<MapScreen> {
     zoom: 6.4746,
   );
 
-
-  Future<void> showCustomDialog(ctx, info, distance) {
+  Future<void> showCustomDialog(ctx, info) {
+    //Future<void> showCustomDialog(ctx, info, distance) {
     return showDialog(
         context: ctx,
         builder: (ctx) {
@@ -313,64 +322,72 @@ class _MapScreenState extends State<MapScreen> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       (loggedInUser == null)
-                        ? Container()
-                        : Text(
-                          "${info.name}, $distance Km",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20
-                          ),
-                        ),
+                          ? Container()
+                          : Text(
+                              // "${info.name}, $distance Km",
+                              "${info.name}",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 20),
+                            ),
                       const SizedBox(height: 12),
                       Container(
-                        height: 36,
-                        // child: InterestChips(selectedMarkerInfo: selectedMarker,)
-                          child: InterestChips(selectedMarkerInfo: info,)
-                      ),
+                          height: 36,
+                          // child: InterestChips(selectedMarkerInfo: selectedMarker,)
+                          child: InterestChips(
+                            selectedMarkerInfo: info,
+                          )),
                       const SizedBox(height: 6),
                       const Divider(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           loggedInUser == null
-                            ? Container()
-                            : TextButton.icon(
-                              onPressed: (){
-                                loggedInUser == null
-                                    ? Navigator.of(context).pushReplacementNamed(
-                                        AuthScreen.routeName,
-                                      )
-                                    : Navigator.push(context, MaterialPageRoute<void>(
-                                        builder: (BuildContext context) =>
-                                          ChatScreen(
-                                            friendId: selectedMarker.email,
-                                            friendName: selectedMarker.name,
-                                            currentHumanId: _currentHuman!.email,
-                                            currentHumanName: _currentHuman!.name,
-                                          ),
-                                        fullscreenDialog: true
-                                ));
-                              },
-                              icon: const Icon(Icons.chat),
-                              label: const Text('Chat')
-                          ),
+                              ? Container()
+                              : TextButton.icon(
+                                  onPressed: () {
+                                    loggedInUser == null
+                                        ? Navigator.of(context)
+                                            .pushReplacementNamed(
+                                            AuthScreen.routeName,
+                                          )
+                                        : Navigator.push(
+                                            context,
+                                            MaterialPageRoute<void>(
+                                                builder: (BuildContext
+                                                        context) =>
+                                                    ChatScreen(
+                                                      friendId:
+                                                          selectedMarker.email,
+                                                      friendName:
+                                                          selectedMarker.name,
+                                                      currentHumanId:
+                                                          _currentHuman!.email,
+                                                      currentHumanName:
+                                                          _currentHuman!.name,
+                                                    ),
+                                                fullscreenDialog: true));
+                                  },
+                                  icon: const Icon(Icons.chat),
+                                  label: const Text('Chat')),
                           TextButton.icon(
-                              onPressed: (){
+                              onPressed: () {
                                 loggedInUser == null
-                                    ? Navigator.of(context).pushReplacementNamed(
+                                    ? Navigator.of(context)
+                                        .pushReplacementNamed(
                                         AuthScreen.routeName,
                                       )
-                                    : Navigator.push(context, MaterialPageRoute<void>(
-                                    builder: (BuildContext context) =>
-                                        FullScreenDialog(
-                                          selectedMarkerInfo: selectedMarker,
-                                        ),
-                                    fullscreenDialog: true
-                                ));
+                                    : Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                            builder: (BuildContext context) =>
+                                                FullScreenDialog(
+                                                  selectedMarkerInfo:
+                                                      selectedMarker,
+                                                ),
+                                            fullscreenDialog: true));
                               },
                               icon: const Icon(Icons.add),
-                              label: const Text('List all interests')
-                          )
+                              label: const Text('List all interests'))
                         ],
                       )
                     ],
@@ -384,15 +401,13 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _savePositionAndGoThere(loggedInUser, position) async {
     final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(
-        CameraPosition(
-            target: LatLng(
-                position.latitude,
-                position.longitude,
-            ),
-            zoom: 6
-        ,)
-    ));
+    controller.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(
+      target: LatLng(
+        position.latitude,
+        position.longitude,
+      ),
+      zoom: 6,
+    )));
 
     try {
       _firestore.collection('humans').doc(loggedInUser.uid).update({
@@ -401,9 +416,9 @@ class _MapScreenState extends State<MapScreen> {
           'latitude': position.latitude,
         },
       });
-    } on PlatformException catch(error) {
+    } on PlatformException catch (error) {
       //Handle exception of type SomeException
-    } catch(error) {
+    } catch (error) {
       //Handle all other exceptions
     }
     getCurrentHumanStream();
@@ -414,36 +429,35 @@ class _MapScreenState extends State<MapScreen> {
     final providedHumans = Provider.of<Humans>(context).humans;
 
     return Scaffold(
-      appBar: AppBar(title: Center(
-        child: FilterOrAddInterests(
-            filterHumans: _setHumanFilterList,
-            user: loggedInUser,
-            userInterests: _currentHuman?.interests
-          ),
+      appBar: AppBar(
+        title: Center(
+          child: FilterOrAddInterests(
+              filterHumans: _setHumanFilterList,
+              user: loggedInUser,
+              userInterests: _currentHuman?.interests),
+        ),
       ),
+      drawer: AppDrawer(
+        loggedInUser: loggedInUser,
       ),
-      drawer: AppDrawer(loggedInUser: loggedInUser,),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : GoogleMap(
-            markers: markers,
-            mapType: MapType.normal,
-            initialCameraPosition: (_currentHuman == null)
-                ? _initialPosition
-                : CameraPosition(
-                    target: LatLng(
-                        _currentHuman!.position.latitude,
-                        _currentHuman!.position.longitude
-                    ),
-                    zoom: 14.151926040649414
-                ),
-            onMapCreated: (GoogleMapController controller) {
-              _controller.complete(controller);
-              controller.setMapStyle(_mapStyle);
-              // _setHumanMarkers(humans, _currentHuman);
-              _setHumanMarkers(providedHumans, _currentHuman);
-            },
-          ),
+              markers: markers,
+              mapType: MapType.normal,
+              initialCameraPosition: (_currentHuman == null)
+                  ? _initialPosition
+                  : CameraPosition(
+                      target: LatLng(_currentHuman!.position.latitude,
+                          _currentHuman!.position.longitude),
+                      zoom: 14.151926040649414),
+              onMapCreated: (GoogleMapController controller) {
+                _controller.complete(controller);
+                controller.setMapStyle(_mapStyle);
+                // _setHumanMarkers(humans, _currentHuman);
+                _setHumanMarkers(providedHumans, _currentHuman);
+              },
+            ),
       floatingActionButton: FloatingActionButton.extended(
         // onPressed: getCurrentHumanStream,
         onPressed: () {
@@ -465,15 +479,15 @@ class _MapScreenState extends State<MapScreen> {
 class FullScreenDialog extends StatelessWidget {
   final MarkerInformation selectedMarkerInfo;
 
-  const FullScreenDialog({
-    Key? key,
-    required this.selectedMarkerInfo
-  }) : super(key: key);
+  const FullScreenDialog({Key? key, required this.selectedMarkerInfo})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${selectedMarkerInfo.name}\'s Interests'),),
+      appBar: AppBar(
+        title: Text('${selectedMarkerInfo.name}\'s Interests'),
+      ),
       body: HumanInterestList(humanInfo: selectedMarkerInfo),
     );
   }
