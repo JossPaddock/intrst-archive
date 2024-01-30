@@ -283,16 +283,28 @@ class _MapScreenState extends State<MapScreen> {
       if (_permissionGranted != PermissionStatus.granted) {
         return;
       }
+      _gotoCurrentUserLocation();
     }
   }
 
   Future<void> _gotoCurrentUserLocation() async {
+    print('START: Trying to go to current user location! TIME: ');
+    print(DateTime.now().millisecondsSinceEpoch);
     final GoogleMapController controller = await _controller.future;
+    print('STEP 1: Finished loading the google map controller');
+    print(DateTime.now().millisecondsSinceEpoch);
     final locationData = await location.getLocation();
+    print(
+        'STEP 2: Finished loading location data from location.getLocation() call');
+    print(DateTime.now().millisecondsSinceEpoch);
     _newPosition = CameraPosition(
         target: LatLng(locationData.latitude!, locationData.longitude!),
         zoom: 12);
+    print('STEP 3: Finished loading a Camera Position based on locationData');
+    print(DateTime.now().millisecondsSinceEpoch);
     controller.animateCamera(CameraUpdate.newCameraPosition(_newPosition));
+    print('END: Trying to go to current user location!');
+    print(DateTime.now().millisecondsSinceEpoch);
   }
 
   static final CameraPosition _initialPosition = CameraPosition(
@@ -430,6 +442,7 @@ class _MapScreenState extends State<MapScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        //backgroundColor: Color.fromARGB(255, 58, 128, 185),
         title: Center(
           child: FilterOrAddInterests(
               filterHumans: _setHumanFilterList,
@@ -460,6 +473,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         // onPressed: getCurrentHumanStream,
+        backgroundColor: Color.fromARGB(255, 87, 139, 179),
         onPressed: () {
           if (_permissionGranted == PermissionStatus.granted) {
             _gotoCurrentUserLocation();
